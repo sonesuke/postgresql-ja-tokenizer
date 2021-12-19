@@ -1,0 +1,5 @@
+comment = 'ja_tokenizer:  Created by pgx'
+default_version = '1.0'
+module_pathname = '$libdir/ja_tokenizer'
+relocatable = false
+superuser = false
