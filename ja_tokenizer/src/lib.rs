@@ -1,21 +1,42 @@
 use pgx::*;
-use lindera::tokenizer::Tokenizer;
-use lindera_core::core::viterbi::Mode;
-use once_cell::sync::Lazy;
+use lindera::tokenizer::{Tokenizer, TokenizerConfig};
+use lindera_core::viterbi::Mode;
+use once_cell::sync::OnceCell;
 use std::sync::Mutex;
+use std::path::PathBuf;
 
 pg_module_magic!();
 
-static TOKENIZER: Lazy<Mutex<Tokenizer>> = Lazy::new(|| Mutex::new(Tokenizer::new(Mode::Normal, "")));
+static TOKENIZER: OnceCell<Mutex<Tokenizer>> = OnceCell::new();
+
 
 #[pg_extern]
 fn jat_tokenize(input: &str) -> impl std::iter::Iterator<Item=String> {
-    let tokens = TOKENIZER.lock().unwrap().tokenize(input);
+    let t = TOKENIZER.get_or_init(|| Mutex::new(Tokenizer::new().unwrap()));
+    let result = t.lock().unwrap().tokenize(input);
     let mut ret = Vec::<String>::new();
-    for token in tokens {
-        ret.push(String::from(token.text));
+    match result {
+        Err(why) => panic!("{:?}", why),
+        Ok(tokens) => {
+            for token in tokens {
+                ret.push(String::from(token.text));
+            }
+        }
     }
     ret.into_iter()
+}
+
+#[pg_extern]
+fn jat_config(input: &str) -> &str {
+    let path = PathBuf::from(input);
+    let config = TokenizerConfig {
+        user_dict_path: Some(path.as_path()),
+        mode: Mode::Normal,
+        ..TokenizerConfig::default()
+    };
+    let mut t = TOKENIZER.get_or_init(|| Mutex::new(Tokenizer::new().unwrap())).lock().unwrap();
+    *t = Tokenizer::with_config(config).unwrap();
+    input
 }
 
 #[cfg(any(test, feature = "pg_test"))]
@@ -28,6 +49,18 @@ mod tests {
         let count = Spi::get_one::<i32>("SELECT COUNT(*) FROM jat_tokenize('人工知能は最近発展した。');")
             .expect("failed to get SPI result");
         assert_eq!(count, 8);
+    }
+
+    #[pg_test]
+    fn test_jat_config() {
+        let config = Spi::get_one::<&str>("SELECT jat_config('/app/sample/user_dic.csv');")
+            .expect("failed to get SPI result");
+        assert_eq!(config, "/app/sample/user_dic.csv");
+
+        let count = Spi::get_one::<i32>("SELECT COUNT(*) FROM jat_tokenize('東京スカイツリーの最寄り駅はとうきょうスカイツリー駅です');")
+            .expect("failed to get SPI result");
+        assert_eq!(count, 6);
+
     }
 }
 
