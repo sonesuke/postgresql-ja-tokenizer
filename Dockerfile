@@ -30,3 +30,6 @@ ENV USER=$USERNAME
 # install cargo-pgx
 RUN cargo install cargo-pgx
 RUN cargo pgx init
+
+# install formatter
+RUN rustup component add rustfmt
