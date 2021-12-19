@@ -84,3 +84,8 @@ Test for postgresql 14 only.
 cargo pgx test pg14
 ```
 
+Apply formatter.
+
+```
+cargo fmt
+```
