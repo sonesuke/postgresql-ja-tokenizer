@@ -1,4 +1,4 @@
-FROM rust:latest
+FROM rust:1.57.0-bullseye
 
 # install modules for cargo-pgx
 RUN apt-get update && apt-get install -y \
