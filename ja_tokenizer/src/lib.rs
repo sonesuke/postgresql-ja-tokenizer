@@ -1,13 +1,16 @@
+use pgx::*;
 use lindera::tokenizer::Tokenizer;
 use lindera_core::core::viterbi::Mode;
-use pgx::*;
+use once_cell::sync::Lazy;
+use std::sync::Mutex;
 
 pg_module_magic!();
 
+static TOKENIZER: Lazy<Mutex<Tokenizer>> = Lazy::new(|| Mutex::new(Tokenizer::new(Mode::Normal, "")));
+
 #[pg_extern]
-fn jat_tokenize(input: &str) -> impl std::iter::Iterator<Item = String> {
-    let mut tokenizer = Tokenizer::new(Mode::Normal, "");
-    let tokens = tokenizer.tokenize(input);
+fn jat_tokenize(input: &str) -> impl std::iter::Iterator<Item=String> {
+    let tokens = TOKENIZER.lock().unwrap().tokenize(input);
     let mut ret = Vec::<String>::new();
     for token in tokens {
         ret.push(String::from(token.text));
