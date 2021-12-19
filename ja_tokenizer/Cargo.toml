@@ -20,6 +20,7 @@ pgx = "0.2.6"
 pgx-macros = "0.2.6"
 lindera-core = "0.7.1"
 lindera = "0.7.1"
+once_cell = "1.8.0"
 
 [dev-dependencies]
 pgx-tests = "0.2.6"
