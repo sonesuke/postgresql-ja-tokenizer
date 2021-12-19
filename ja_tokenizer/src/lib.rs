@@ -4,6 +4,7 @@ use lindera_core::viterbi::Mode;
 use once_cell::sync::OnceCell;
 use std::sync::Mutex;
 use std::path::PathBuf;
+use serde_json::*;
 
 pg_module_magic!();
 
@@ -20,6 +21,22 @@ fn jat_tokenize(input: &str) -> impl std::iter::Iterator<Item=String> {
         Ok(tokens) => {
             for token in tokens {
                 ret.push(String::from(token.text));
+            }
+        }
+    }
+    ret.into_iter()
+}
+
+#[pg_extern]
+fn jat_tokenize_to_json(input: &str) -> impl std::iter::Iterator<Item = Json> {
+    let t = TOKENIZER.get_or_init(|| Mutex::new(Tokenizer::new().unwrap()));
+    let result = t.lock().unwrap().tokenize(input);
+    let mut ret = Vec::<Json>::new();
+    match result {
+        Err(why) => panic!("{:?}", why),
+        Ok(tokens) => {
+            for token in tokens {
+                ret.push(Json(json! { { "text": token.text, "feature": token.detail[0], "conjugation": token.detail[1]} }));
             }
         }
     }
@@ -47,6 +64,13 @@ mod tests {
     #[pg_test]
     fn test_jat_tokenize() {
         let count = Spi::get_one::<i32>("SELECT COUNT(*) FROM jat_tokenize('人工知能は最近発展した。');")
+            .expect("failed to get SPI result");
+        assert_eq!(count, 8);
+    }
+
+    #[pg_test]
+    fn test_jat_tokenize_to_json() {
+        let count = Spi::get_one::<i32>("SELECT COUNT(*) FROM jat_tokenize_to_json('人工知能は最近発展した。');")
             .expect("failed to get SPI result");
         assert_eq!(count, 8);
     }
